@@ -2,16 +2,19 @@
 
 ## Pipe Up
 
-One sentence description
+This is a low level C program that replicates the pipe operator through manually manipulating file descriptors
 
 ## Building
 
-Explain briefly how to build your program
+Build the program using make
 
 ## Running
 
-Show an example run of your program, using at least two additional arguments, and what to expect
+cs111@cs111 CS111/lab1 (Lab1 !*%) » ./pipe ls
+Makefile  pipe  pipe.c  pipe.o  __pycache__  README.md  test_lab1.py
+cs111@cs111 CS111/lab1 (Lab1 !*%) » ./pipe ls cat wc
+      7       7      63
 
 ## Cleaning up
 
-Explain briefly how to clean up all binary files
+make clean
