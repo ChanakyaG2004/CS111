@@ -181,6 +181,8 @@ int main(int argc, char *argv[])
 
   u32 total_waiting_time = 0;
   u32 total_response_time = 0;
+/* Your code here */
+//Thank you TA for helping me with this lab!!!
 
   for (int i = 0; i < size; i++) {
     data[i].index = i;
@@ -235,7 +237,8 @@ int main(int argc, char *argv[])
         }
       } 
   }
-
+//Thank you TA for helping me with this lab!!!
+/* End of "Your code here" */
   printf("Average waiting time: %.2f\n", (float)total_waiting_time / (float)size);
   printf("Average response time: %.2f\n", (float)total_response_time / (float)size);
 
