@@ -17,11 +17,10 @@ struct process
   u32 pid;
   u32 arrival_time;
   u32 burst_time;
+  u32 total_time_run;
+  u32 index;
 
   TAILQ_ENTRY(process) pointers;
-
-  /* Additional fields here */
-  /* End of "Additional fields here" */
 };
 
 TAILQ_HEAD(process_list, process);
@@ -88,9 +87,7 @@ u32 next_int_from_c_str(const char *data)
   return current;
 }
 
-void init_processes(const char *path,
-                    struct process **process_data,
-                    u32 *process_size)
+void init_processes(const char *path, struct process **process_data, u32 *process_size)
 {
   int fd = open(path, O_RDONLY);
   if (fd == -1)
@@ -141,6 +138,32 @@ void init_processes(const char *path,
   close(fd);
 }
 
+int compare_arrival_time(const void* a, const void* b) {
+  const struct process* processA = (const struct process*)a;
+  const struct process* processB = (const struct process*)b;
+
+  if (processA->arrival_time < processB->arrival_time) return -1;
+  if (processA->arrival_time > processB->arrival_time) return 1;
+
+  if (processA->index < processB->index) return -1;
+  if (processA->index > processB->index) return 1;
+
+  return 0;
+}
+
+void add_processes_to_ready_queue(struct process_list *not_processed, struct process_list *ready_queue, int time_elapsed) {
+  if (!TAILQ_EMPTY(not_processed)) {
+    struct process *next_to_process = TAILQ_FIRST(not_processed);
+    while (next_to_process != NULL && next_to_process->arrival_time == time_elapsed) {
+      struct process *new_process = (struct process*)malloc(sizeof(struct process));
+      *new_process = *next_to_process;
+      TAILQ_REMOVE(not_processed, next_to_process, pointers);
+      TAILQ_INSERT_TAIL(ready_queue, new_process, pointers);
+      next_to_process = TAILQ_FIRST(not_processed);
+    }
+  }
+}
+
 int main(int argc, char *argv[])
 {
   if (argc != 3)
@@ -159,9 +182,59 @@ int main(int argc, char *argv[])
   u32 total_waiting_time = 0;
   u32 total_response_time = 0;
 
-  /* Your code here */
-  
-  /* End of "Your code here" */
+  for (int i = 0; i < size; i++) {
+    data[i].index = i;
+  }
+
+  qsort(data, size, sizeof(struct process), compare_arrival_time);
+
+  struct process_list not_processed;
+  TAILQ_INIT (&not_processed);
+
+  for (int i = 0; i < size; i++) {
+    TAILQ_INSERT_TAIL(&not_processed, &data[i], pointers);
+  }
+
+  struct process* current_element;
+  u32 time_elapsed = 0;
+  u32 time_run = 0;
+
+  add_processes_to_ready_queue(&not_processed, &list, time_elapsed);
+
+  while (!TAILQ_EMPTY(&not_processed) || !TAILQ_EMPTY(&list)) {
+
+    if (!TAILQ_EMPTY(&list)) {
+      current_element = TAILQ_FIRST(&list);
+      
+      if (current_element->total_time_run == 0) {
+        total_response_time += time_elapsed - current_element->arrival_time;
+      }
+      current_element->total_time_run += 1;
+      time_run += 1;
+    }
+    
+    time_elapsed++;
+
+    add_processes_to_ready_queue(&not_processed, &list, time_elapsed);
+      
+    if (!TAILQ_EMPTY(&list)) {
+      current_element = TAILQ_FIRST(&list);
+      if (current_element->total_time_run == current_element->burst_time) {
+        total_waiting_time += time_elapsed - current_element->arrival_time - current_element->burst_time;
+        TAILQ_REMOVE(&list, current_element, pointers);
+        current_element = TAILQ_FIRST(&list);
+        time_run = 0;
+      } 
+      else if (time_run == quantum_length) {
+          struct process* new_element = (struct process*)malloc(sizeof(struct process));
+          *new_element = *current_element;
+
+          TAILQ_REMOVE(&list, current_element, pointers);
+          TAILQ_INSERT_TAIL(&list, new_element, pointers);
+          time_run = 0;  
+        }
+      } 
+  }
 
   printf("Average waiting time: %.2f\n", (float)total_waiting_time / (float)size);
   printf("Average response time: %.2f\n", (float)total_response_time / (float)size);
