@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/queue.h>
-
 #include <pthread.h>
 
 struct list_entry {
@@ -16,6 +15,7 @@ struct list_entry {
 SLIST_HEAD(list_head, list_entry);
 
 struct hash_table_entry {
+	pthread_mutex_t lock;
 	struct list_head list_head;
 };
 
@@ -25,10 +25,15 @@ struct hash_table_v2 {
 
 struct hash_table_v2 *hash_table_v2_create()
 {
+  uint32_t error = 0;
 	struct hash_table_v2 *hash_table = calloc(1, sizeof(struct hash_table_v2));
 	assert(hash_table != NULL);
 	for (size_t i = 0; i < HASH_TABLE_CAPACITY; ++i) {
 		struct hash_table_entry *entry = &hash_table->entries[i];
+		error = pthread_mutex_init(&entry->lock, NULL);
+		if (error != 0) {
+		  exit(error);
+		}
 		SLIST_INIT(&entry->list_head);
 	}
 	return hash_table;
@@ -72,20 +77,37 @@ void hash_table_v2_add_entry(struct hash_table_v2 *hash_table,
                              const char *key,
                              uint32_t value)
 {
+  uint32_t error = 0;
 	struct hash_table_entry *hash_table_entry = get_hash_table_entry(hash_table, key);
 	struct list_head *list_head = &hash_table_entry->list_head;
+
+	error = pthread_mutex_lock(&hash_table_entry->lock);
+	if (error != 0) {
+	  exit(error);
+	}
+
 	struct list_entry *list_entry = get_list_entry(hash_table, key, list_head);
 
 	/* Update the value if it already exists */
 	if (list_entry != NULL) {
 		list_entry->value = value;
+		error = pthread_mutex_unlock(&hash_table_entry->lock);
+		if (error != 0) {
+		  exit(error);
+		}
 		return;
 	}
 
+	
 	list_entry = calloc(1, sizeof(struct list_entry));
 	list_entry->key = key;
 	list_entry->value = value;
+
 	SLIST_INSERT_HEAD(list_head, list_entry, pointers);
+	error = pthread_mutex_unlock(&hash_table_entry->lock);
+	if (error != 0) {
+	  exit(err);
+	}
 }
 
 uint32_t hash_table_v2_get_value(struct hash_table_v2 *hash_table,
@@ -100,6 +122,7 @@ uint32_t hash_table_v2_get_value(struct hash_table_v2 *hash_table,
 
 void hash_table_v2_destroy(struct hash_table_v2 *hash_table)
 {
+  uint32_t error = 0;
 	for (size_t i = 0; i < HASH_TABLE_CAPACITY; ++i) {
 		struct hash_table_entry *entry = &hash_table->entries[i];
 		struct list_head *list_head = &entry->list_head;
@@ -108,6 +131,10 @@ void hash_table_v2_destroy(struct hash_table_v2 *hash_table)
 			list_entry = SLIST_FIRST(list_head);
 			SLIST_REMOVE_HEAD(list_head, pointers);
 			free(list_entry);
+		}
+		error = pthread_mutex_destroy(&entry->lock);
+		if (error != 0) {
+		  exit(error);
 		}
 	}
 	free(hash_table);
